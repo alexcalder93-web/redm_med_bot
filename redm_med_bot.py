@@ -9,6 +9,8 @@ import discord
 from discord import app_commands
 from google.oauth2.service_account import Credentials
 import gspread
+from datetime import datetime
+import pytz
 
 
 # ---------- Config ----------
@@ -79,12 +81,21 @@ async def updaterank(interaction: discord.Interaction, name: str, rank: str):
     if not is_chief(interaction):
         await deny_permission(interaction)
         return
-    row_idx,row=find_row_by_name(name)
+
+    row_idx, row = find_row_by_name(name)
     if not row_idx:
         await interaction.response.send_message("❌ Doctor not found")
         return
-    sheet.update_cell(row_idx,2,rank)
-    await interaction.response.send_message(f"📋 Updated {name} rank to {rank}")
+
+    # Update rank
+    sheet.update_cell(row_idx, 2, rank)
+    
+    # Update last promoted timestamp (UK time)
+    uk_tz = pytz.timezone("Europe/London")
+    timestamp = datetime.now(uk_tz).strftime("%Y-%m-%d %H:%M:%S %Z")
+    sheet.update_cell(row_idx, 4, timestamp)
+
+    await interaction.response.send_message(f"📋 Updated {name}'s rank to {rank} (Last Promoted: {timestamp})")
 
 @tree.command(name="removedoctor", description="Remove doctor")
 @app_commands.describe(name="Name")
@@ -105,9 +116,10 @@ async def showroster(interaction: discord.Interaction):
     if len(data)<=1:
         await interaction.response.send_message("📋 Roster empty")
         return
-    roster_lines=[f"**{row[0]}** — {row[1]} ({row[2]})" for row in data[1:] if len(row)>=3]
-    chunk="\n".join(roster_lines)[:3900]
-    embed=discord.Embed(title="🏥 RedM Medical Roster", description=chunk, color=discord.Color.blue())
+roster_lines = [
+    f"**{row[0]}** — {row[1]} ({row[2]}) | Last Promoted: {row[3] if len(row)>=4 else 'N/A'}"
+    for row in data[1:] if len(row)>=3]
+    embed=discord.Embed(title="🏥 WFRP Medical Roster", description=chunk, color=discord.Color.blue())
     await interaction.response.send_message(embed=embed)
 
 @client.event
