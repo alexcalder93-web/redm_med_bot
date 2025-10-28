@@ -120,12 +120,20 @@ async def removedoctor(interaction: discord.Interaction, name: str):
     if not is_chief(interaction):
         await deny_permission(interaction)
         return
-    row_idx,row=find_row_by_name(name)
-    if not row_idx:
-        await interaction.response.send_message("❌ Doctor not found")
-        return
-    sheet.delete_row(row_idx)
-    await interaction.response.send_message(f"🗑️ Removed {name}")
+
+    await interaction.response.defer(ephemeral=True)
+
+    try:
+        row_idx, row = find_row_by_name(name)
+        if not row_idx:
+            await interaction.followup.send("❌ Doctor not found")
+            return
+
+        sheet.delete_row(row_idx)
+        await interaction.followup.send(f"🗑️ Removed {name}")
+    except Exception as e:
+        await interaction.followup.send(f"⚠️ Error removing doctor: `{e}`")
+
 
 @tree.command(name="showroster", description="Show roster")
 async def showroster(interaction: discord.Interaction):
