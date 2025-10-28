@@ -125,20 +125,20 @@ async def showroster(interaction: discord.Interaction):
         await interaction.response.send_message("📋 Roster empty")
         return
 
-    roster_lines = [
-        f"**{row[0]}** — {row[1]} ({row[2]}) | Last Promoted: {row[3] if len(row)>=4 else 'N/A'}"
-        for row in data[1:] if len(row) >= 3
-    ]
-    chunk = "\n".join(roster_lines)[:3900]
+roster_lines = [
+    f"**{row[0]}** — {row[1]} ({ACTIVITY_CHOICES.get(row[2], row[2])}) | Last Promoted: {row[3] if len(row)>=4 else 'N/A'}"
+    for row in data[1:] if len(row) >= 3
+]
 
-    embed = discord.Embed(
-        title="🏥 WFRP Medical Roster",
-        description=chunk,
-        color=discord.Color.blue()
-    )
+chunk = "\n".join(roster_lines)[:3900]
 
-    await interaction.response.send_message(embed=embed)
+embed = discord.Embed(
+    title="🏥 WFRP Medical Roster",
+    description=chunk,
+    color=discord.Color.blue()
+)
 
+await interaction.response.send_message(embed=embed)
 
 @client.event
 async def on_ready():
