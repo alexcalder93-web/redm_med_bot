@@ -19,7 +19,15 @@ CREDS_FILE = "credentials.json"
 CHIEF_ROLE_NAME = os.environ.get("CHIEF_ROLE_NAME", "Chief Doctor")
 BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN")
 
-ACTIVITY_OPTIONS = ["Active","Semi-Active","Inactive","LOA","ROA","Suspended"]
+ACTIVITY_CHOICES = {
+    "Active": "🟢 Active",
+    "Semi-Active": "🟡 Semi-Active",
+    "Inactive": "⚪ Inactive",
+    "LOA": "🟠 LOA",
+    "ROA": "🔵 ROA",
+    "Suspended": "🔴 Suspended"
+}
+activity_choices = [discord.app_commands.Choice(name=v, value=k) for k, v in ACTIVITY_CHOICES.items()]
 
 # ---------- Google Sheets Setup ----------
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -53,27 +61,27 @@ def find_row_by_name(name: str):
 # ---------- Commands ----------
 @tree.command(name="adddoctor", description="Add a doctor")
 @app_commands.describe(name="Name", rank="Rank", activity="Activity")
-@app_commands.choices(activity=[app_commands.Choice(name=a,value=a) for a in ACTIVITY_OPTIONS])
+@app_commands.choices(activity=activity_choices)
 async def adddoctor(interaction: discord.Interaction, name: str, rank: str, activity: app_commands.Choice[str]):
     if not is_chief(interaction):
         await deny_permission(interaction)
         return
-    sheet.append_row([name, rank, activity.value])
+    sheet.append_row([name, rank, activity.value, ""])  # Keep Last Promoted blank initially
     await interaction.response.send_message(f"✅ Added {name} as {rank} ({activity.value})")
 
 @tree.command(name="updateactivity", description="Update activity")
 @app_commands.describe(name="Name", activity="New activity")
-@app_commands.choices(activity=[app_commands.Choice(name=a,value=a) for a in ACTIVITY_OPTIONS])
+@app_commands.choices(activity=activity_choices)
 async def updateactivity(interaction: discord.Interaction, name: str, activity: app_commands.Choice[str]):
     if not is_chief(interaction):
         await deny_permission(interaction)
         return
-    row_idx,row=find_row_by_name(name)
+    row_idx, row = find_row_by_name(name)
     if not row_idx:
         await interaction.response.send_message("❌ Doctor not found")
         return
-    sheet.update_cell(row_idx,3,activity.value)
-    await interaction.response.send_message(f"🩺 Updated {name} activity to {activity.value}")
+    sheet.update_cell(row_idx, 3, activity.value)
+    await interaction.response.send_message(f"🩺 Updated {name}'s activity to {activity.value}")
 
 @tree.command(name="updaterank", description="Update rank")
 @app_commands.describe(name="Name", rank="New rank")
