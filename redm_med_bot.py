@@ -126,7 +126,7 @@ async def showroster(interaction: discord.Interaction):
         return
 
     roster_lines = [
-        f"**{row[0]}** | Rank: {row[1]} | Activity: ({ACTIVITY_CHOICES.get(row[2], row[2])}) | Last Promoted: {row[3] if len(row)>=4 else 'N/A'}"
+        f"**{row[0]}** | **Rank:** {row[1]} | **Activity:** {ACTIVITY_CHOICES.get(row[2], row[2])} | **Last Promoted:** {row[3] if len(row)>=4 else 'N/A'}"
         for row in data[1:] if len(row) >= 3
     ]
     chunk = "\n".join(roster_lines)[:3900]
