@@ -29,6 +29,15 @@ ACTIVITY_CHOICES = {
 }
 activity_choices = [discord.app_commands.Choice(name=v, value=k) for k, v in ACTIVITY_CHOICES.items()]
 
+RANK_ORDER = {
+    "Chief Doctor": 0,
+    "Head Doctor": 1,
+    "Senior Doctor": 2,
+    "Doctor": 3,
+    "Junior Doctor": 4,
+    "Apprentice": 5
+}
+
 # ---------- Google Sheets Setup ----------
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
@@ -125,10 +134,26 @@ async def showroster(interaction: discord.Interaction):
         await interaction.response.send_message("📋 Roster empty")
         return
 
-    roster_lines = [
-        f"**{row[0]}** | **Rank:** {row[1]} | **Activity:** {ACTIVITY_CHOICES.get(row[2], row[2])} | **Last Promoted:** {row[3] if len(row)>=4 else 'N/A'}"
+    # Prepare roster rows
+    roster_rows = [
+        {
+            "name": row[0],
+            "rank": row[1],
+            "activity": ACTIVITY_CHOICES.get(row[2], row[2]),
+            "last_promoted": row[3] if len(row) >= 4 else "N/A"
+        }
         for row in data[1:] if len(row) >= 3
     ]
+
+    # Sort by rank using RANK_ORDER
+    roster_rows.sort(key=lambda x: RANK_ORDER.get(x["rank"], 99))
+
+    # Build display lines
+    roster_lines = [
+        f"**{r['name']}** | **RANK:** {r['rank']} | **ACTIVITY:** {r['activity']} | **LAST PROMOTED:** {r['last_promoted']}"
+        for r in roster_rows
+    ]
+
     chunk = "\n".join(roster_lines)[:3900]
 
     embed = discord.Embed(
@@ -137,8 +162,8 @@ async def showroster(interaction: discord.Interaction):
         color=discord.Color.blue()
     )
 
-    # <-- This must be INSIDE the async function
     await interaction.response.send_message(embed=embed)
+
 
 
 @client.event
