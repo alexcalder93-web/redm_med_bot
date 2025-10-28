@@ -121,6 +121,7 @@ async def removedoctor(interaction: discord.Interaction, name: str):
         await deny_permission(interaction)
         return
 
+    # Defer so Discord doesn't time out while calling Google Sheets
     await interaction.response.defer(ephemeral=True)
 
     try:
@@ -129,11 +130,13 @@ async def removedoctor(interaction: discord.Interaction, name: str):
             await interaction.followup.send("❌ Doctor not found")
             return
 
-        sheet.delete_row(row_idx)
+        # gspread uses delete_rows (plural). This deletes a single row.
+        sheet.delete_rows(row_idx)
+
         await interaction.followup.send(f"🗑️ Removed {name}")
     except Exception as e:
+        # Provide the error so you can debug quickly
         await interaction.followup.send(f"⚠️ Error removing doctor: `{e}`")
-
 
 @tree.command(name="showroster", description="Show roster")
 async def showroster(interaction: discord.Interaction):
