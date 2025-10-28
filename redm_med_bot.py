@@ -120,15 +120,25 @@ async def removedoctor(interaction: discord.Interaction, name: str):
 
 @tree.command(name="showroster", description="Show roster")
 async def showroster(interaction: discord.Interaction):
-    data=sheet.get_all_values()
-    if len(data)<=1:
+    data = sheet.get_all_values()
+    if len(data) <= 1:
         await interaction.response.send_message("📋 Roster empty")
         return
-roster_lines = [
-    f"**{row[0]}** — {row[1]} ({row[2]}) | Last Promoted: {row[3] if len(row)>=4 else 'N/A'}"
-    for row in data[1:] if len(row)>=3]
-    embed=discord.Embed(title="🏥 WFRP Medical Roster", description=chunk, color=discord.Color.blue())
+
+    roster_lines = [
+        f"**{row[0]}** — {row[1]} ({row[2]}) | Last Promoted: {row[3] if len(row)>=4 else 'N/A'}"
+        for row in data[1:] if len(row) >= 3
+    ]
+    chunk = "\n".join(roster_lines)[:3900]
+
+    embed = discord.Embed(
+        title="🏥 WFRP Medical Roster",
+        description=chunk,
+        color=discord.Color.blue()
+    )
+
     await interaction.response.send_message(embed=embed)
+
 
 @client.event
 async def on_ready():
