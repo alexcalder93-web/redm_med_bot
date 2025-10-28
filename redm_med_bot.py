@@ -11,7 +11,7 @@ from google.oauth2.service_account import Credentials
 import gspread
 
 # ---------- Config ----------
-SHEET_NAME = os.environ.get("SHEET_NAME", "WFRP Medical Roster")
+SHEET_ID = os.environ.get("SHEET_ID", "YOUR_SHEET_ID_HERE")
 CREDS_FILE = "credentials.json"
 CHIEF_ROLE_NAME = os.environ.get("CHIEF_ROLE_NAME", "Chief Doctor")
 BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN")
@@ -19,12 +19,10 @@ BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN")
 ACTIVITY_OPTIONS = ["Active","Semi-Active","Inactive","LOA","ROA","Suspended"]
 
 # ---------- Google Sheets Setup ----------
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets",
-         "https://www.googleapis.com/auth/drive"
-         ]
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
 gc = gspread.authorize(creds)
-sheet = gc.open(SHEET_NAME).sheet1
+sheet = gc.open_by_key(SHEET_ID).sheet1
 
 # ---------- Discord Setup ----------
 intents = discord.Intents.default()
