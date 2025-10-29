@@ -219,7 +219,8 @@ async def weekly_reminder():
 
     if now.weekday() == REMINDER_DAY and now.hour == REMINDER_HOUR:
         channel_id = REMINDER_CHANNEL_ID or load_reminder_config()
-channel = client.get_channel(channel_id) if channel_id else None
+        channel = client.get_channel(channel_id) if channel_id else None
+
         if not channel:
             print("⚠️ Reminder channel not found.")
             return
@@ -267,6 +268,7 @@ channel = client.get_channel(channel_id) if channel_id else None
             embed.description = "✅ Everyone is active this week!"
 
         await channel.send(embed=embed)
+
 
 
 @client.event
