@@ -20,6 +20,25 @@ SHEET_ID = os.environ.get("SHEET_ID", "YOUR_SHEET_ID_HERE")
 CREDS_FILE = "credentials.json"
 CHIEF_ROLE_NAME = os.environ.get("CHIEF_ROLE_NAME", "Chief Doctor")
 BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN")
+
+CONFIG_FILE = "reminder_config.json"
+
+def load_reminder_config():
+    """Load reminder channel ID from file."""
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, "r") as f:
+            try:
+                data = json.load(f)
+                return data.get("reminder_channel_id")
+            except json.JSONDecodeError:
+                return None
+    return None
+
+def save_reminder_config(channel_id: int):
+    """Save reminder channel ID to file."""
+    with open(CONFIG_FILE, "w") as f:
+        json.dump({"reminder_channel_id": channel_id}, f)
+
 REMINDER_CHANNEL_ID = load_reminder_config()
 REMINDER_DAY = 6  # 0=Monday, 6=Sunday
 REMINDER_HOUR = 18  # 24-hour format (18 = 6 PM)
@@ -71,25 +90,6 @@ def find_row_by_name(name: str):
         if len(row)>=1 and row[0].strip().lower()==name.strip().lower():
             return i, row
     return None, None
-
-CONFIG_FILE = "reminder_config.json"
-
-def load_reminder_config():
-    """Load reminder channel ID from file."""
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r") as f:
-            try:
-                data = json.load(f)
-                return data.get("reminder_channel_id")
-            except json.JSONDecodeError:
-                return None
-    return None
-
-def save_reminder_config(channel_id: int):
-    """Save reminder channel ID to file."""
-    with open(CONFIG_FILE, "w") as f:
-        json.dump({"reminder_channel_id": channel_id}, f)
-
 
 # ---------- Commands ----------
 @tree.command(name="adddoctor", description="Add a doctor")
@@ -211,13 +211,22 @@ async def setreminderchannel(interaction: discord.Interaction, channel: discord.
 
     await interaction.response.send_message(f"✅ Weekly reminder channel set to {channel.mention}")
 
+last_reminder_date = None  # Track last reminder day globally
+
 @tasks.loop(minutes=60)
 async def weekly_reminder():
     """Runs hourly and checks if it's the scheduled reminder time (Sunday 18:00 UK)."""
+    global last_reminder_date
+
     uk_tz = pytz.timezone("Europe/London")
     now = datetime.now(uk_tz)
 
+    # Only run on the correct weekday/hour, and once per date
     if now.weekday() == REMINDER_DAY and now.hour == REMINDER_HOUR:
+        today_date = now.date()
+        if last_reminder_date == today_date:
+            return  # Already sent today
+
         channel_id = REMINDER_CHANNEL_ID or load_reminder_config()
         channel = client.get_channel(channel_id) if channel_id else None
 
@@ -228,13 +237,11 @@ async def weekly_reminder():
         data = sheet.get_all_values()
         if len(data) <= 1:
             await channel.send("📋 The medical roster is empty — no reminders to show.")
+            last_reminder_date = today_date
             return
 
         # Categorize members by status
-        inactive = []
-        loa = []
-        roa = []
-        suspended = []
+        inactive, loa, roa, suspended = [], [], [], []
 
         for row in data[1:]:
             if len(row) < 3:
@@ -268,6 +275,10 @@ async def weekly_reminder():
             embed.description = "✅ Everyone is active this week!"
 
         await channel.send(embed=embed)
+
+        # Mark reminder as sent for today
+        last_reminder_date = today_date
+
 
 
 
