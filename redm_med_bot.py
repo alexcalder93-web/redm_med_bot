@@ -11,6 +11,8 @@ from google.oauth2.service_account import Credentials
 import gspread
 from datetime import datetime
 import pytz
+from discord.ext import tasks
+import json
 
 
 # ---------- Config ----------
@@ -18,6 +20,9 @@ SHEET_ID = os.environ.get("SHEET_ID", "YOUR_SHEET_ID_HERE")
 CREDS_FILE = "credentials.json"
 CHIEF_ROLE_NAME = os.environ.get("CHIEF_ROLE_NAME", "Chief Doctor")
 BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN")
+REMINDER_CHANNEL_ID = load_reminder_config()
+REMINDER_DAY = 6  # 0=Monday, 6=Sunday
+REMINDER_HOUR = 18  # 24-hour format (18 = 6 PM)
 
 ACTIVITY_CHOICES = {
     "Active": "🟢 Active",
@@ -66,6 +71,25 @@ def find_row_by_name(name: str):
         if len(row)>=1 and row[0].strip().lower()==name.strip().lower():
             return i, row
     return None, None
+
+CONFIG_FILE = "reminder_config.json"
+
+def load_reminder_config():
+    """Load reminder channel ID from file."""
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, "r") as f:
+            try:
+                data = json.load(f)
+                return data.get("reminder_channel_id")
+            except json.JSONDecodeError:
+                return None
+    return None
+
+def save_reminder_config(channel_id: int):
+    """Save reminder channel ID to file."""
+    with open(CONFIG_FILE, "w") as f:
+        json.dump({"reminder_channel_id": channel_id}, f)
+
 
 # ---------- Commands ----------
 @tree.command(name="adddoctor", description="Add a doctor")
@@ -175,10 +199,80 @@ async def showroster(interaction: discord.Interaction):
 
     await interaction.response.send_message(embed=embed)
 
+@tree.command(name="setreminderchannel", description="Set the weekly reminder channel")
+async def setreminderchannel(interaction: discord.Interaction, channel: discord.TextChannel):
+    if not is_chief(interaction):
+        await deny_permission(interaction)
+        return
+
+    global REMINDER_CHANNEL_ID
+    REMINDER_CHANNEL_ID = channel.id
+    save_reminder_config(channel.id)
+
+    await interaction.response.send_message(f"✅ Weekly reminder channel set to {channel.mention}")
+
+@tasks.loop(minutes=60)
+async def weekly_reminder():
+    """Runs hourly and checks if it's the scheduled reminder time (Sunday 18:00 UK)."""
+    uk_tz = pytz.timezone("Europe/London")
+    now = datetime.now(uk_tz)
+
+    if now.weekday() == REMINDER_DAY and now.hour == REMINDER_HOUR:
+        channel_id = REMINDER_CHANNEL_ID or load_reminder_config()
+channel = client.get_channel(channel_id) if channel_id else None
+        if not channel:
+            print("⚠️ Reminder channel not found.")
+            return
+
+        data = sheet.get_all_values()
+        if len(data) <= 1:
+            await channel.send("📋 The medical roster is empty — no reminders to show.")
+            return
+
+        # Categorize members by status
+        inactive = []
+        loa = []
+        roa = []
+        suspended = []
+
+        for row in data[1:]:
+            if len(row) < 3:
+                continue
+            name, rank, status = row[0], row[1], row[2]
+            if status == "Inactive":
+                inactive.append(f"• {name} ({rank})")
+            elif status == "LOA":
+                loa.append(f"• {name} ({rank})")
+            elif status == "ROA":
+                roa.append(f"• {name} ({rank})")
+            elif status == "Suspended":
+                suspended.append(f"• {name} ({rank})")
+
+        embed = discord.Embed(
+            title="🩺 Weekly Medical Roster Reminder",
+            color=discord.Color.red(),
+            timestamp=now
+        )
+
+        if inactive:
+            embed.add_field(name="⚪ Inactive", value="\n".join(inactive), inline=False)
+        if loa:
+            embed.add_field(name="🟠 LOA", value="\n".join(loa), inline=False)
+        if roa:
+            embed.add_field(name="🔵 ROA", value="\n".join(roa), inline=False)
+        if suspended:
+            embed.add_field(name="🔴 Suspended", value="\n".join(suspended), inline=False)
+
+        if not any([inactive, loa, roa, suspended]):
+            embed.description = "✅ Everyone is active this week!"
+
+        await channel.send(embed=embed)
 
 
 @client.event
 async def on_ready():
     await tree.sync()
+    if not weekly_reminder.is_running():
+        weekly_reminder.start()
     print(f"✅ Logged in as {client.user}")
-client.run(BOT_TOKEN)
+
