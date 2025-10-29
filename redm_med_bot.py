@@ -289,3 +289,13 @@ async def on_ready():
         weekly_reminder.start()
     print(f"✅ Logged in as {client.user}")
 
+if __name__ == "__main__":
+    if not BOT_TOKEN:
+        print("⚠️ No Discord token found! Please set DISCORD_BOT_TOKEN in environment variables.")
+    else:
+        try:
+            client.run(BOT_TOKEN)
+        except Exception as e:
+            print(f"❌ Bot failed to start: {e}")
+
+
